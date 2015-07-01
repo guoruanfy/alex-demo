@@ -11,7 +11,76 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <log_level>debug</log_level>
+        <service_name>alex-demo</service_name>
     </properties>
+
+    <profiles>
+        <profile>
+            <id>onebox</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+                <property>
+                    <name>onebox</name>
+                    <value>true</value>
+                </property>
+            </activation>
+            <properties>
+                <location>onebox</location>
+                <log_level>debug</log_level>
+            </properties>
+            <build>
+                <!--不同环境指定不同配置-->
+                <resources>
+                    <resource>
+                        <directory>src/main/resources/onebox</directory>
+                        <filtering>true</filtering>
+                    </resource>
+                </resources>
+            </build>
+        </profile>
+        <profile>
+            <id>staging</id>
+            <activation>
+                <property>
+                    <name>staging</name>
+                    <value>true</value>
+                </property>
+            </activation>
+            <properties>
+                <log4j_level>debug</log4j_level>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>appassembler-maven-plugin</artifactId>
+                        <version>1.1.1</version>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>assemble</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <!--不同环境配置不同的jvm参数-->
+                        <configuration>
+                            <extraJvmArguments>
+                                <![CDATA[-Djava.security.krb5.conf=/home/work/conf/krb5-hadoop.conf -Dhadoop.property.hadoop.security.authentication=kerberos -Dhadoop.property.hadoop.client.kerberos.principal=h_miui_ad@XIAOMI.HADOOP -Dhadoop.property.hadoop.client.keytab.file=/home/work/conf/h_miui_ad.keytab]]>
+                            </extraJvmArguments>
+                            <programs>
+                                <program>
+                                    <mainClass></mainClass>
+                                    <name></name>
+                                </program>
+                            </programs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
     <dependencies>
         <!--日志 -->
@@ -69,6 +138,42 @@
             <artifactId>libthrift</artifactId>
             <version>0.9.2</version>
         </dependency>
+
+        <!--spring-->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-core</artifactId>
+            <version>4.1.7.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-beans</artifactId>
+            <version>4.1.7.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <version>4.1.7.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-aop</artifactId>
+            <version>4.1.7.RELEASE</version>
+        </dependency>
+
+        <!--aspectj-->
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjrt</artifactId>
+            <version>1.8.6</version>
+        </dependency>
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+            <version>1.8.6</version>
+        </dependency>
+
+
 
     </dependencies>
 

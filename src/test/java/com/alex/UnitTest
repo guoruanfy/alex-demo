@@ -1,0 +1,253 @@
+单元测试的框架选择
+常见的有JUnit4与TestNG，前者了解的人更多些，后者功能较多些。目前系统中需要的测试功能JUnit4都能满足，因此我们选用JUnit4来进行测试。两个产品的功能比较可以参考这片文章 http://www.mkyong.com/unittest/junit-4-vs-testng-comparison/
+JUnit4使用比较简单，目前用到的注解就如下几个：
+JUnit4注解说明
+// 这里我们使用Spring与JUnit结合的运行类
+@RunWith(SpringJUnit4ClassRunner.class)
+
+//以下两个注解是在Class级别
+@BeforeClass
+public static void setUpClass() {
+}
+@AfterClass
+public static void tearDownClass() {
+}
+
+//以下两个级别是在method级别
+@Before
+public void setUp() {
+    flyway.clean(); // 数据库清空，包括所有表结构和数据
+    flyway.migrate(); // 重新导入数据库建表语句及sql文件中指定的测试数据
+    mockJedis.flushAll(); // redis缓存清空
+}
+@After
+public void tearDown() {
+}
+
+//实际的测试类
+@Test
+public void testInsertAdInfo(){
+}
+JUnit4这里我们还用到了TestSuite这个类，是用来对Test类进行聚合，方便在后续指定哪些测试需要执行，哪些不需要执行。
+TestSuite的使用
+package com.xiaomi.miui.ad.store.dao;
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite;
+/**
+ * Created by IntelliJ IDEA.
+ * User: 赵冬
+ * Date: 2014/4/25
+ * Time: 15:21
+ * 这里spring context 配置文件应该是被缓存和重复利用的。
+ * 详见：http://stackoverflow.com/questions/8501975/reuse-spring-application-context-across-junit-test-classes
+ */
+@RunWith(Suite.class)
+@Suite.SuiteClasses({
+        AdInfoMasterDAOTest.class,
+        AdInfoSlaveDAOTest.class
+})
+public class DAOTestSuite {
+}
+这一步是可选的，可以不指定includes，默认对所有@Test的方法进行测试；也可以在项目的pom.xml配置文件中使用了maven-surefire-plugin来在maven打包时候执行测试用例的检查，通过配置来选择只执行TestSuite中指定的测试类。
+pom文件中单元测试的配置
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-surefire-plugin</artifactId>
+    <configuration>
+        <includes>
+            <include>**/*TestSuite.java</include>
+        </includes>
+        <skip>false</skip>
+    </configuration>
+</plugin>
+另外，单元测试需要在pom.xml中添加几个dependency
+单元测试依赖的jar包
+<!-- Unit Test使用 -->
+<dependency>
+    <groupId>com.h2database</groupId>
+    <artifactId>h2</artifactId>
+    <version>1.4.177</version>
+</dependency>
+<dependency>
+    <groupId>org.flywaydb</groupId>
+    <artifactId>flyway-core</artifactId>
+    <version>3.0</version>
+</dependency>
+<dependency>
+    <groupId>junit</groupId>
+    <artifactId>junit</artifactId>
+    <version>4.4</version>
+    <scope>test</scope>
+</dependency>
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-test</artifactId>
+    <version>2.5.6</version>
+    <scope>test</scope>
+</dependency>
+<dependency>
+    <groupId>com.fiftyonred</groupId>
+    <artifactId>mock-jedis</artifactId>
+    <version>0.2.2</version>
+    <scope>test</scope>
+</dependency>
+<dependency>
+    <groupId>org.mockito</groupId>
+    <artifactId>mockito-all</artifactId>
+    <version>1.9.5</version>
+</dependency>
+
+单元测试与spring框架的结合
+目前项目中好多类的实例化生命周期都是由spring-context来托管。我们希望能够在测试代码里也直接使用spring来管理相关的类，这样在编写测试用例时候可以比较方便的利用@Autowired来使用需要的类实例。另外在测试时候使用 @ContextConfiguration(locations = {"classpath:applicationContext-test.xml"}) 来指定需要绑定的context文件位置。相关测试文件我们存放在src\test\resources文件夹下。
+日志打印的配置
+项目实际运行时候的日志打印会有比较复杂的配置。在测试时候我们只需要把相关的信息直接打印在控制台即可，其中日志等级可以根据需要选择使用debug还是info。
+在测试的resources下放置一个配置文件：src\test\resources\log4j.xml
+测试使用的日志配置
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
+<log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">
+    <appender name="myConsole" class="org.apache.log4j.ConsoleAppender">
+        <layout class="org.apache.log4j.PatternLayout">
+            <param name="ConversionPattern" value="[%d{dd HH:mm:ss,SSS\} %-5p] [%t] %c{2\} - %m%n" />
+        </layout>
+    </appender>
+    <!-- 根logger的设置 -->
+    <root>
+        <priority value="info" />
+        <appender-ref ref="myConsole" />
+    </root>
+</log4j:configuration>
+
+DAO层
+DAO的测试主要是为了及早发现SQL语句执行上的错误等问题，目前我们使用的是MySQL数据库，其建表语句的SQL有些包含特殊的语法，因此我们在直接使用内存式数据库时候直接导入原始SQL语句会报错。这有两种解决思路：一是还是用MySQL作为单元测试的数据库，之前我们尝试了mysql-connector-mxj-5.0.12，但是使用过程比较曲折，在windows平台和linux平台都费了好大劲，onebox环境下还跑不起来。这个项目好像也有段时间没有更新了，因此这条路放弃了。另一种解决思路就是把SQL建表语句修改，去除包含MySQL特殊语法的语句，只保留通用的SQL语句。目前我们使用的是这种方法。
+内存式数据库有许多种类(derby, H2, HSQL等），因为是单元测试，我们不需对内存式数据库的性能有过多要求，只需要能够比较方便的支持相关的测试操作即可。这里我们采用的是h2 数据库 （http://www.h2database.com/ ），另外在网上找了一个开源项目Flywaydb （http://flywaydb.org/ ），来方便对数据库的清空和导入SQL文件操作。
+DAO层测试结合spring配置文件，我们需要对applicationContext-test.xml中指定的数据源重新指定到内存式数据库h2中，添加一个h2Database；另外添加一个帮助类Flyway，来对数据库进行清空和导入SQL建表语句工作。
+数据源及帮助类的配置
+<bean id="h2Database" class="org.apache.commons.dbcp.BasicDataSource"
+      destroy-method="close" lazy-init="false">
+    <property name="driverClassName" value="org.h2.Driver"></property>
+    <property name="url" value="jdbc:h2:mem:miui_bidding_ad"></property>
+    <!--<property name="url" value="jdbc:h2:file:~/.h2/miui_bidding_ad"></property>-->
+    <property name="username" value="sa"></property>
+    <property name="password" value=""></property>
+</bean>
+
+<!--这里使用Flyway框架进行sql文件的导入工作，具体的导入在init-method的migrate方法中进行。
+如果不特殊指定，默认sql文件存放在classpath：db.migration文件夹下-->
+<bean id="dbMigration" class="org.flywaydb.core.Flyway"
+      depends-on="h2Database" init-method="migrate" lazy-init="false">
+    <property name="sqlMigrationPrefix" value="Test"/>
+    <property name="dataSource" ref="h2Database"/>
+</bean>
+
+我们的项目中使用了读写分离的主从数据库，之前在spring配置时候分为master和slave两个bean。由于spring配置文件编写的限制，需要写一个中间类，来把主从数据库都指向同一个h2Database。
+辅助类，来实现两个不同id的bean指向同一个bean实例
+public class TestDataSource {
+    public static BasicDataSource getInstance(BasicDataSource datasource) {
+        return datasource;
+    }
+}
+主从数据库的指定
+<bean id="jade.dataSource.com.xiaomi.miui.ad.store.dao.master"
+      class="com.xiaomi.miui.ad.store.functional.TestDataSource"
+      factory-method="getInstance">
+    <constructor-arg ref="h2Database"/>
+</bean>
+<bean id="jade.dataSource.com.xiaomi.miui.ad.store.dao.slave"
+      class="com.xiaomi.miui.ad.store.functional.TestDataSource"
+      factory-method="getInstance">
+    <constructor-arg ref="h2Database"/>
+</bean>
+
+Redis层的Mock
+Mock就是在测试过程中，对于某些不容易构造或者 不容易获取的对象，用一个虚拟的对象来创建以便测试的测试方法。我们项目中用到了Redis的相关操作，实际环境是需要去redis集群去获取连接来进行读写操作。单元测试过程中我们的目标是把这部分的功能用一个内存对象mock出来。从原理上来说我们只需要维护一个内存中的Map对象来保存各种各样的redis读写请求内容，这需要这个数据结构要对redis（以及我们项目中使用的对应Java客户端Jedis的API有良好的支持）。为了避免重复造轮子，我们又找了一个开源项目 mock-jedis, https://github.com/50onRed/mock-jedis , 这个项目的功能基本满足需求，但还需要我们再特殊定制一些相关操作，这时候就需要一个mock框架来帮助了。
+常见的mock框架有EasyMock, Mockito, PowerMock等。其中EasyMock最老牌，但是使用较繁琐。Mockito是EasyMock的一个后续分支，使用简单明了，我们采用这个框架进行mock操作。PowerMock可以实现Mockito一些无法做到的事情，譬如对final及static类及方法的mock（PowerMock好像是采用了一个自定义的JVM启动器之类的东西实现这些操作的）。
+下面一个例子是我们对项目中用到的ShardedJedis相关mock操作：
+利用Mockito及Java反射机制实现ShardedJedis相关Mock操作
+@Mock
+private ShardedJedisPool shardedJedisPool;
+@Mock
+private ShardedJedisPipeline shardedJedisPipeline;
+private ShardedJedis shardedJedis;
+@Autowired
+private MockJedis mockJedis;
+public RedisCacheClientMock() {
+    MockitoAnnotations.initMocks(this);
+    shardedJedis = mock(ShardedJedis.class, new Answer() {
+        @Override
+        public Object answer(InvocationOnMock invocation) throws InvocationTargetException,
+                IllegalAccessException, NoSuchMethodException {
+            String methodName = invocation.getMethod().getName();
+            if (methodName.equals("pipelined")) {
+                return shardedJedisPipeline;
+            } else if (shardedJedisPipeline.equals("disconnect")) {
+                return null;
+            } else {
+                Object[] objects = invocation.getArguments();
+                Class clazz = mockJedis.getClass();
+                Method shardedJedisMethod = invocation.getMethod();
+                Method mockJedisMethod = clazz.getMethod(shardedJedisMethod.getName(),
+                        shardedJedisMethod.getParameterTypes());
+                Object[] params = invocation.getArguments();
+                if (methodName.equals("sadd")) {
+                    // 对于sadd(String key, String... members)这种输入参数含有varargs的方法需要特殊处理
+                    params = new Object[2];
+                    params[0] = invocation.getArguments()[0];
+                    int varargsLength = invocation.getArguments().length - 1;
+                    String[] varargs = new String[varargsLength];
+                    for (int i = 0; i < varargsLength; ++i) {
+                        varargs[i] = (String) invocation.getArguments()[1 + i];
+                    }
+                    params[1] = varargs;
+                }
+                return mockJedisMethod.invoke(mockJedis, params);
+            }
+        }
+    });
+    //这里把com.xiaomi.miui.ad.store.biz.RedisCacheBiz 用到的相关操作都mock到实际用到的mockJedis这个对象上去。
+    given(shardedJedisPipeline.set(anyString(), anyString())).willAnswer(new Answer<Response<String>>() {
+        public Response<String> answer(InvocationOnMock invocation) throws Throwable {
+            Object[] args = invocation.getArguments();
+            return mockJedis.pipelined().set((String) args[0], (String) args[1]);
+        }
+    });
+    given(shardedJedisPipeline.expire(anyString(), anyInt())).willAnswer(new Answer<Response<Long>>() {
+        public Response<Long> answer(InvocationOnMock invocation) throws Throwable {
+            Object[] args = invocation.getArguments();
+            return mockJedis.pipelined().expire((String) args[0], (Integer) args[1]);
+        }
+    });
+    given(shardedJedisPipeline.sadd(anyString(), anyString())).willAnswer(new Answer<Response<Long>>() {
+        @Override
+        public Response<Long> answer(InvocationOnMock invocation) throws Throwable {
+            Object[] args = invocation.getArguments();
+            /* TODO: 这里最好用mockJedis.pipelined.sadd()方法。但是由于目前Jedis使用的版本是2.1.0，
+            但是MockJedis使用的版本是0.2.2，对应的Jedis版本需要使用Jedis的2.4.2，最低也要使用Jedis的2.2.1，
+            使用新版本的Jedis后一个问题是API结构的修改使得现有代码需要改动，另一个是Mockito的mock有问题。
+            最后没搞定，用下面的方法把pipeline绕过去，直接把值写进mockJedis里。
+            */
+            mockJedis.sadd((String) args[0], (String) args[1]);
+            return new Response<Long>(BuilderFactory.LONG);
+        }
+    });
+    // 对于没有返回值的方法mock，mockito要求的写法与上面略有差别，when或者given（BDD写法）要放在后面。
+    willAnswer(new Answer() {
+        public Object answer(InvocationOnMock invocation) throws Throwable {
+            mockJedis.pipelined().sync();
+            return null;
+        }
+    }).given(shardedJedisPipeline).sync();
+    given(shardedJedisPool.getResource()).willReturn(shardedJedis);
+}
+测试时候使用的Spring配置文件
+在测试时候使用的applicationContext.xml配置文件中，我们还需要对已经mock的类从Spring组件自动扫描的目录中删除掉，同时添加对mock类的自动扫描。
+Spring配置文件修改扫描范围
+<!--注册annotation -->
+<context:annotation-config/>
+<!-- 自动扫描 -->
+<context:component-scan base-package="com.xiaomi.miui.ad.store">
+    <context:exclude-filter type="assignable" expression="com.xiaomi.miui.ad.store.proxy.EmailSenderProxyImpl" />
+    <context:exclude-filter type="regex" expression="com.xiaomi.miui.ad.store.cache.*" />
+</context:component-scan>
+<context:component-scan base-package="com.xiaomi.miui.ad.store.mock">
+</context:component-scan>

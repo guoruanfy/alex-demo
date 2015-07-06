@@ -1,7 +1,8 @@
 package com.alex.demo;
 
+import com.alex.demo.java.json.JSONUtil;
+
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -9,14 +10,8 @@ import java.util.List;
  */
 public class AlexDemo {
     public static void main(String[] args) {
-        List<String> books =new ArrayList<String>();
-        for (Iterator<String> iterator = books.iterator(); iterator.hasNext(); ) {
-            String next =  iterator.next();
-            
-        }
-        if (books != null) {
-            return;
-        }
-
+        AlexDemo alexDemo = new AlexDemo();
     }
+
+
 }

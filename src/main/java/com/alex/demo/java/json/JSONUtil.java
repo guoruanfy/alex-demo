@@ -70,6 +70,41 @@ public class JSONUtil {
             throw new RuntimeException(e);
         }
     }
+
+
+    public static void main(String[] args) {
+        Student student = new Student();
+        student.setAge(11);
+        student.setName("aa");
+        String studentJsonStr = JSONUtil.writeValueAsString(student);
+        System.out.println(JSONUtil.writeValueAsString(student));
+
+        Student student1 = JSONUtil.readValue(studentJsonStr, Student.class);
+        System.out.println(student1.getAge());
+    }
+
+
+    private static class Student {
+
+        private String name;
+        private int age;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public int getAge() {
+            return age;
+        }
+
+        public void setAge(int age) {
+            this.age = age;
+        }
+    }
 }
 
 @JsonFilter("ThriftBeanFilter") 

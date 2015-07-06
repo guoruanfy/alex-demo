@@ -3,14 +3,6 @@ Alt + Insert	:	超级插入 新建等等
 
 善用 Alt + 数字键 => 切换面板
 
-Alt + 1  Project
-Alt + 4  Run Console
-Alt + 6  TODO
-Alt + 7  类中方法列表
-Alt + 8  类的层次结构
-Alt + 9  Changes log
-
-
 Ctrl + H	:	类层次查看
 Ctrl + N	:	快速打开类
 Ctrl + R	:	替换

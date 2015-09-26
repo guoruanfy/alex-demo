@@ -11,6 +11,8 @@ import java.util.List;
 public class AlexDemo {
     public static void main(String[] args) {
         AlexDemo alexDemo = new AlexDemo();
+
+        System.out.println("Hello word!");
     }
 
 
